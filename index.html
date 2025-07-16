@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gerenciamento de Pedidos</title>
+
+    <base href="/meu-sistema-saas/"> 
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4a90e2"/>
+    
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512x512.png">
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        /* Estilos CSS (não alterados, mantidos como no seu código original) */
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --accent-color: #f5a623;
+            --text-color: #333;
+            --light-bg: #f5f7fa;
+            --white-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --error-color: #e74c3c;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Altera para alinhar ao topo */
+            min-height: 100vh; /* Garante que o body ocupe a altura total da viewport */
+            overflow-y: auto; /* Adiciona scroll se o conteúdo for maior que a tela */
+        }
+
+        .container {
+            background-color: var(--white-bg);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1200px; /* Aumenta a largura máxima para acomodar as abas */
+            margin: 20px; /* Adiciona margem para não colar nas bordas */
+        }
+
+        h1, h2 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .tabs {
+            display: flex;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab-button {
+            background-color: transparent;
+            border: none;
+            padding: 15px 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+            color: var(--text-color);
+            transition: color 0.3s, border-bottom 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            padding-top: 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--light-bg);
+        }
+
+        form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        form input[type="text"],
+        form input[type="email"],
+        form input[type="password"],
+        form input[type="number"],
+        form select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box; /* Garante que padding e border sejam incluídos na largura total */
+        }
+
+        form button {
+            grid-column: span 2; /* Faz o botão ocupar as duas colunas */
+            background-color: var(--primary-color);
+            color: white;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+
+        form button:hover {
+            background-color: #3a7bd5; /* Um tom mais escuro */
+        }
+
+        form button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .item-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); /* Layout responsivo */
+            gap: 20px;
+        }
+
+        .item-card {
+            background-color: var(--white-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between; /* Empurra os botões para o final */
+        }
+
+        .item-card h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .item-card p {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        .item-card .actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .item-card .actions button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+
+        .item-card .actions .edit-btn {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .item-card .actions .edit-btn:hover {
+            background-color: #e0941d;
+        }
+
+        .item-card .actions .delete-btn {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .item-card .actions .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .message {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Login Screen */
+        .login-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+        }
+
+        .login-container {
+            background-color: var(--white-bg);
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+
+        .login-container h2 {
+            margin-bottom: 30px;
+        }
+
+        .login-container form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: transparent; /* Override form default */
+            padding: 0;
+            border: none;
+        }
+
+        .login-container input[type="email"],
+        .login-container input[type="password"] {
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1em;
+        }
+
+        .login-container button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: background-color 0.3s ease;
+        }
+
+        .login-container button:hover {
+            background-color: #3a7bd5;
+        }
+
+        .login-container .toggle-text {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .login-container .toggle-text a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        /* Pedidos Specific Styles */
+        .pedido-form-group {
+            grid-column: span 2;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+            background-color: var(--white-bg);
+        }
+
+        .pedido-form-group h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        .pedido-servicos-selecionados {
+            list-style: none;
+            padding: 0;
+            margin-top: 10px;
+        }
+
+        .pedido-servicos-selecionados li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--light-bg);
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin-bottom: 5px;
+        }
+
+        .pedido-servicos-selecionados li .delete-btn {
+            background-color: var(--error-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 0.8em;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0;
+        }
+
+        .pedido-servicos-selecionados li .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+        .pedido-total {
+            text-align: right;
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-top: 15px;
+        }
+
+        .pedido-card {
+            background-color: var(--white-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pedido-card .pedido-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 10px;
+            border-bottom: 1px dashed var(--border-color);
+            padding-bottom: 10px;
+        }
+
+        .pedido-card .pedido-header h3 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .pedido-card .pedido-header span {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .pedido-card p {
+            margin: 5px 0;
+        }
+
+        .pedido-servicos-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+            border-top: 1px dashed var(--border-color);
+            padding-top: 10px;
+        }
+
+        .pedido-servicos-list li {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.95em;
+        }
+
+        .pedido-valores {
+            text-align: right;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color);
+        }
+
+        .pedido-valores .preco-original {
+            text-decoration: line-through;
+            color: #999;
+            margin-right: 5px;
+            font-size: 0.9em;
+        }
+
+        .pedido-valores .desconto-valor {
+            color: var(--error-color);
+            margin-right: 5px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .pedido-valores .preco-final {
+            color: var(--primary-color);
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .pedido-status {
+            display: flex;
+            flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+            gap: 15px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed var(--border-color);
+            justify-content: space-between; /* Distribui os itens */
+        }
+
+        .pedido-status .status-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1; /* Garante que os grupos ocupem o espaço disponível */
+            min-width: 150px; /* Garante que não fiquem muito apertados */
+        }
+
+        .pedido-status label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .pedido-status select,
+        .pedido-status input[type="date"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9em;
+            box-sizing: border-box;
+        }
+
+        .pedido-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end; /* Alinha os botões à direita */
+        }
+
+        .pedido-actions button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.3s ease;
+        }
+
+        .pedido-actions .view-comprovante-btn {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .pedido-actions .view-comprovante-btn:hover {
+            background-color: #43b398;
+        }
+
+        /* Relatório Styles */
+        .relatorio-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .relatorio-table th,
+        .relatorio-table td {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+
+        .relatorio-table th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: bold;
+        }
+
+        .relatorio-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        .relatorio-table tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .relatorio-actions {
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        .relatorio-actions button {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s ease;
+        }
+
+        .relatorio-actions button:hover {
+            background-color: #43b398;
+        }
+
+        .resumo-pendencias {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Comprovante Modal Styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1001; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            padding: 30px;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 10px;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .modal-content h3 {
+            color: var(--primary-color);
+            margin-top: 0;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .modal-content p {
+            margin-bottom: 8px;
+        }
+
+        .modal-content hr {
+            border: 0;
+            border-top: 1px dashed var(--border-color);
+            margin: 20px 0;
+        }
+
+        .modal-content .pedido-servicos-list {
+            border-top: none; /* Remove a borda superior para este contexto */
+            padding-top: 0;
+        }
+
+        .modal-content .pedido-servicos-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+            padding: 5px 0;
+        }
+        .modal-content .pedido-servicos-list li span:nth-child(1) { flex-grow: 1; }
+        .modal-content .pedido-servicos-list li span:nth-child(2) { margin: 0 10px; color: #777; }
+        .modal-content .pedido-servicos-list li span:nth-child(3) { font-weight: bold; }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .comprovante-actions {
+            margin-top: 20px;
+            text-align: center;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .comprovante-actions button {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.95em;
+            transition: background-color 0.3s ease;
+        }
+
+        .comprovante-actions button:hover {
+            background-color: #43b398;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                padding: 20px;
+            }
+            .tabs {
+                flex-direction: column;
+            }
+            .tab-button {
+                width: 100%;
+                text-align: center;
+                border-bottom: none;
+                border-left: 3px solid transparent;
+            }
+            .tab-button.active {
+                border-bottom: none;
+                border-left: 3px solid var(--primary-color);
+            }
+            form {
+                grid-template-columns: 1fr;
+            }
+            form button {
+                grid-column: span 1;
+            }
+            .item-list {
+                grid-template-columns: 1fr;
+            }
+            .pedido-status {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-screen" id="login-screen">
+        <div class="login-container">
+            <div id="message" class="message" style="display:none;"></div>
+            <h2 id="login-title">Entrar</h2>
+            <form id="login-form">
+                <input type="email" id="email" placeholder="Email" required>
+                <input type="password" id="password" placeholder="Senha" required>
+                <button type="submit" id="auth-button">Entrar</button>
+            </form>
+            <p class="toggle-text">
+                <span id="toggle-auth-mode">Não tem uma conta? <a href="#">Cadastre-se</a></span>
+            </p>
+        </div>
+    </div>
+
+    <div class="container" id="main-system" style="display:none;">
+        <h1>Sistema de Gerenciamento de Pedidos</h1>
+        <p id="user-info" style="text-align: right; font-size: 0.9em; margin-bottom: 20px;"></p>
+        <button id="logout-button" style="float: right; background-color: #ccc; color: #333; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer;">Sair</button>
+
+        <div class="tabs">
+            <button class="tab-button active" data-tab="clientes">Clientes</button>
+            <button class="tab-button" data-tab="servicos">Serviços</button>
+            <button class="tab-button" data-tab="pedidos">Pedidos</button>
+            <button class="tab-button" data-tab="relatorio">Relatório</button>
+        </div>
+
+        <div id="clientes-tab" class="tab-content active">
+            <h2>Gerenciar Clientes</h2>
+            <div id="message-cliente" class="message" style="display:none;"></div>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id">
+                <label for="cliente-nome">Nome:</label>
+                <input type="text" id="cliente-nome" placeholder="Nome do Cliente" required>
+                <label for="cliente-email">Email:</label>
+                <input type="email" id="cliente-email" placeholder="Email do Cliente" required>
+                <label for="cliente-telefone">Telefone:</label>
+                <input type="text" id="cliente-telefone" placeholder="Telefone do Cliente">
+                <label for="cliente-endereco">Endereço:</label>
+                <input type="text" id="cliente-endereco" placeholder="Endereço do Cliente">
+                <button type="submit" id="btn-add-cliente">Adicionar Cliente</button>
+            </form>
+            <h3>Lista de Clientes</h3>
+            <div id="lista-clientes" class="item-list">
+                </div>
+        </div>
+
+        <div id="servicos-tab" class="tab-content">
+            <h2>Gerenciar Serviços</h2>
+            <div id="message-servico" class="message" style="display:none;"></div>
+            <form id="form-servico">
+                <input type="hidden" id="servico-id">
+                <label for="servico-nome">Nome do Serviço:</label>
+                <input type="text" id="servico-nome" placeholder="Ex: Lavagem a Seco" required>
+                <label for="servico-valor">Valor:</label>
+                <input type="number" id="servico-valor" step="0.01" placeholder="Ex: 50.00" required>
+                <button type="submit" id="btn-add-servico">Adicionar Serviço</button>
+            </form>
+            <h3>Lista de Serviços</h3>
+            <div id="lista-servicos" class="item-list">
+                </div>
+        </div>
+
+        <div id="pedidos-tab" class="tab-content">
+            <h2>Gerenciar Pedidos</h2>
+            <div id="message-pedido" class="message" style="display:none;"></div>
+            <form id="form-pedido">
+                <div class="pedido-form-group">
+                    <h4>Informações do Pedido</h4>
+                    <label for="cliente-pedido">Cliente:</label>
+                    <select id="cliente-pedido" required>
+                        <option value="">Selecione um cliente</option>
+                    </select>
+                </div>
+                
+                <div class="pedido-form-group">
+                    <h4>Serviços do Pedido</h4>
+                    <label for="servico-pedido">Serviço:</label>
+                    <select id="servico-pedido">
+                        <option value="">Selecione um serviço</option>
+                    </select>
+                    <label for="quantidade-servico">Quantidade:</label>
+                    <input type="number" id="quantidade-servico" value="1" min="1">
+                    <button type="button" id="add-servico-pedido-btn" style="grid-column: span 2;">Adicionar Serviço ao Pedido</button>
+                    
+                    <ul id="pedido-servicos-selecionados" class="pedido-servicos-selecionados" style="grid-column: span 2;">
+                        </ul>
+                    
+                    <label for="desconto-pedido" style="grid-column: span 2;">Desconto (% ou Valor Fixo):</label>
+                    <input type="number" id="desconto-pedido" step="0.01" value="0" style="grid-column: span 2;">
+                    
+                    <div style="grid-column: span 2; text-align: right; margin-top: 15px;">
+                        <strong>Total do Pedido:</strong> <span id="total-pedido">R$ 0,00</span>
+                    </div>
+                </div>
+                
+                <button type="submit" id="btn-add-pedido">Criar Pedido</button>
+            </form>
+            <h3>Lista de Pedidos</h3>
+            <div id="lista-pedidos" class="item-list">
+                </div>
+        </div>
+
+        <div id="relatorio-tab" class="tab-content">
+            <h2>Relatório de Pedidos (Últimos 30 dias)</h2>
+            <div id="message-relatorio" class="message" style="display:none;"></div>
+            <div class="relatorio-actions">
+                <button id="exportar-relatorio-pdf">Exportar para PDF</button>
+            </div>
+            <table class="relatorio-table">
+                <thead>
+                    <tr>
+                        <th>ID Pedido</th>
+                        <th>Cliente</th>
+                        <th>Data Solicitação</th>
+                        <th>Data Entrega</th>
+                        <th>Valor Final</th>
+                        <th>Status Pagamento</th>
+                        <th>Status Entrega</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela-relatorio">
+                    </tbody>
+            </table>
+            <h3 class="resumo-pendencias">Resumo de Pendências de Pagamento</h3>
+            <div id="lista-resumo-pendencias">
+                </div>
+        </div>
+    </div>
+
+    <div id="comprovante-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="fechar-modal">&times;</span>
+            <div id="comprovante-container">
+                </div>
+            <div class="comprovante-actions">
+                <button id="export-comprovante-png">Exportar como PNG</button>
+                <button id="export-comprovante-pdf">Exportar como PDF</button>
+            </div>
+        </div>
+    </div>
+
+<script type="module">
+// Substitua com suas credenciais do Supabase
+const SUPABASE_URL = 'https://mnngzcqttqvqzrhyaqkc.supabase.co'; // Ex: https://xyz.supabase.co
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ubmd6Y3F0dHF2cXpyaHlhcWtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIwNzE0MzQsImV4cCI6MjA2NzY0NzQzNH0.EtAgcMpoOfZc4pv9kd5v363VRwTD2lT0gJ1TQjrt3YM'; // Ex: eyJhbGciOiJI...
+
+const supabaseClient = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Elementos da UI
+const loginScreen = document.getElementById('login-screen');
+const loginForm = document.getElementById('login-form');
+const emailInput = document.getElementById('email');
+const passwordInput = document.getElementById('password');
+const authButton = document.getElementById('auth-button');
+const loginTitle = document.getElementById('login-title');
+const toggleAuthMode = document.getElementById('toggle-auth-mode');
+const mainSystem = document.getElementById('main-system');
+const userInfoSpan = document.getElementById('user-info');
+const logoutButton = document.getElementById('logout-button');
+const messageDiv = document.getElementById('message');
+
+let isSignUpMode = false;
+let clientesCache = [];
+let servicosCache = [];
+let servicosNoPedidoAtual = [];
+
+// Funções utilitárias
+function showMessage(msg, type) {
+    messageDiv.textContent = msg;
+    messageDiv.className = `message ${type}`;
+    messageDiv.style.display = 'block';
+    setTimeout(() => messageDiv.style.display = 'none', 5000);
+}
+
+function showAlertError(error, customMessage) {
+    console.error('Supabase Error:', error);
+    showMessage(customMessage || `Erro: ${error.message}`, 'error');
+}
+
+function showLoading(element) {
+    element.innerHTML = '<div class="loading-spinner"></div>';
+}
+
+function formatCurrency(value) {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+    }).format(value);
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'N/A';
+    const options = { year: 'numeric', month: '2-digit', day: '2-digit' };
+    return new Date(dateString).toLocaleDateString('pt-BR', options);
+}
+
+// Inicialização e autenticação
+document.addEventListener('DOMContentLoaded', async () => {
+    // Esconder a tela principal até o login ser verificado
+    mainSystem.style.display = 'none';
+
+    // Verificar sessão ao carregar a página
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+
+    if (session) {
+        initSystem(session.user);
+    } else {
+        loginScreen.style.display = 'flex';
+    }
+
+    toggleAuthMode.addEventListener('click', (e) => {
+        e.preventDefault();
+        isSignUpMode = !isSignUpMode;
+        if (isSignUpMode) {
+            loginTitle.textContent = 'Cadastre-se';
+            authButton.textContent = 'Cadastrar';
+            toggleAuthMode.innerHTML = 'Já tem uma conta? <a href="#">Entrar</a>';
+        } else {
+            loginTitle.textContent = 'Entrar';
+            authButton.textContent = 'Entrar';
+            toggleAuthMode.innerHTML = 'Não tem uma conta? <a href="#">Cadastre-se</a>';
+        }
+        messageDiv.style.display = 'none'; // Limpa mensagens ao trocar modo
+    });
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = emailInput.value;
+        const password = passwordInput.value;
+
+        authButton.disabled = true;
+        authButton.textContent = isSignUpMode ? 'Cadastrando...' : 'Entrando...';
+
+        let authError = null;
+        let sessionData = null;
+
+        if (isSignUpMode) {
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+            authError = error;
+            sessionData = data.session;
+            if (!authError && data.user && !data.session) { // Supabase V2: email confirmation needed
+                showMessage('Verifique seu e-mail para confirmar seu cadastro e fazer login.', 'success');
+                authButton.disabled = false;
+                authButton.textContent = 'Cadastrar';
+                isSignUpMode = false; // Volta para o modo de login
+                loginTitle.textContent = 'Entrar';
+                authButton.textContent = 'Entrar';
+                toggleAuthMode.innerHTML = 'Não tem uma conta? <a href="#">Cadastre-se</a>';
+                return;
+            }
+        } else {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            authError = error;
+            sessionData = data.session;
+        }
+
+        if (authError) {
+            showAlertError(authError, isSignUpMode ? 'Erro ao cadastrar.' : 'Erro ao fazer login.');
+            authButton.disabled = false;
+            authButton.textContent = isSignUpMode ? 'Cadastrar' : 'Entrar';
+        } else if (sessionData) {
+            showMessage(isSignUpMode ? 'Cadastro realizado e login efetuado com sucesso!' : 'Login efetuado com sucesso!', 'success');
+            loginScreen.style.display = 'none';
+            initSystem(sessionData.user);
+        } else {
+            // Este caso pode ocorrer se signUp não retornar sessão (e.g., email confirmation required)
+            // Já tratado acima para signUp
+            // Para signInWithPassword, se não há sessão nem erro, é um estado inesperado.
+            showAlertError(null, 'Ocorreu um erro desconhecido durante a autenticação.');
+        }
+
+        authButton.disabled = false;
+        authButton.textContent = isSignUpMode ? 'Cadastrar' : 'Entrar';
+    });
+
+    logoutButton.addEventListener('click', async () => {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            showAlertError(error, 'Erro ao fazer logout.');
+        } else {
+            showMessage('Logout realizado com sucesso!', 'success');
+            loginScreen.style.display = 'flex';
+            mainSystem.style.display = 'none';
+            emailInput.value = '';
+            passwordInput.value = '';
+        }
+    });
+
+    async function initSystem(user) {
+        loginScreen.style.display = 'none';
+        mainSystem.style.display = 'block'; // 'flex' ou 'block' dependendo do layout desejado para o container
+        userInfoSpan.textContent = `Logado como: ${user.email}`;
+
+        // Carrega dados iniciais para todas as abas
+        await Promise.all([renderClientes(), renderServicos(), renderPedidos(), renderRelatorio()]);
+        updatePedidoFormOptions();
+    }
+
+    // --- Lógica de Abas ---
+    const tabButtons = document.querySelectorAll('.tab-button');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const tab = button.dataset.tab;
+
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            tabButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            button.classList.add('active');
+
+            // Recarregar dados da aba ao ativar
+            if (tab === 'clientes') renderClientes();
+            else if (tab === 'servicos') renderServicos();
+            else if (tab === 'pedidos') {
+                renderPedidos();
+                updatePedidoFormOptions(); // Garante que selects estejam atualizados
+            }
+            else if (tab === 'relatorio') renderRelatorio();
+        });
+    });
+
+    // --- Lógica de Clientes ---
+    const formCliente = document.getElementById('form-cliente');
+    const listaClientes = document.getElementById('lista-clientes');
+    let editingClienteId = null;
+
+    async function renderClientes() {
+        showLoading(listaClientes);
+        const { data, error } = await supabaseClient
+            .from('clientes')
+            .select('*')
+            .order('nome', { ascending: true });
+
+        if (error) {
+            showAlertError(error, 'Não foi possível carregar os clientes.');
+            listaClientes.innerHTML = '';
+            return;
+        }
+
+        clientesCache = data; // Atualiza o cache de clientes
+        updatePedidoFormOptions(); // Garante que o select de pedidos seja atualizado
+
+        if (data.length === 0) {
+            listaClientes.innerHTML = '<p>Nenhum cliente cadastrado.</p>';
+        } else {
+            listaClientes.innerHTML = data.map(cliente => `
+                <div class="item-card">
+                    <h3>${cliente.nome}</h3>
+                    <p><strong>Email:</strong> ${cliente.email}</p>
+                    <p><strong>Telefone:</strong> ${cliente.telefone || 'N/A'}</p>
+                    <p><strong>Endereço:</strong> ${cliente.endereco || 'N/A'}</p>
+                    <div class="actions">
+                        <button class="edit-btn" data-id="${cliente.id}">Editar</button>
+                        <button class="delete-btn" data-id="${cliente.id}">Excluir</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    formCliente.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('cliente-nome').value;
+        const email = document.getElementById('cliente-email').value;
+        const telefone = document.getElementById('cliente-telefone').value;
+        const endereco = document.getElementById('cliente-endereco').value;
+
+        const btn = document.getElementById('btn-add-cliente');
+        btn.disabled = true;
+        btn.textContent = editingClienteId ? 'Atualizando...' : 'Adicionando...';
+
+        let error = null;
+        if (editingClienteId) {
+            const { error: updateError } = await supabaseClient
+                .from('clientes')
+                .update({ nome, email, telefone, endereco })
+                .eq('id', editingClienteId);
+            error = updateError;
+        } else {
+            const { error: insertError } = await supabaseClient
+                .from('clientes')
+                .insert([{ nome, email, telefone, endereco }]);
+            error = insertError;
+        }
+
+        if (error) {
+            showAlertError(error, `Erro ao ${editingClienteId ? 'atualizar' : 'adicionar'} cliente.`);
+        } else {
+            showMessage(`Cliente ${editingClienteId ? 'atualizado' : 'adicionado'} com sucesso!`, 'success');
+            formCliente.reset();
+            editingClienteId = null;
+            btn.textContent = 'Adicionar Cliente';
+            await renderClientes();
+        }
+        btn.disabled = false;
+    });
+
+    listaClientes.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            const id = e.target.dataset.id;
+            const cliente = clientesCache.find(c => c.id == id);
+            if (cliente) {
+                document.getElementById('cliente-id').value = cliente.id;
+                document.getElementById('cliente-nome').value = cliente.nome;
+                document.getElementById('cliente-email').value = cliente.email;
+                document.getElementById('cliente-telefone').value = cliente.telefone || '';
+                document.getElementById('cliente-endereco').value = cliente.endereco || '';
+                editingClienteId = cliente.id;
+                document.getElementById('btn-add-cliente').textContent = 'Atualizar Cliente';
+            }
+        } else if (e.target.classList.contains('delete-btn') && confirm('Tem certeza que deseja excluir este cliente? Isso também excluirá seus pedidos associados.')) {
+            const id = e.target.dataset.id;
+            // Primeiro, exclua os pedidos associados
+            const { error: pedidosError } = await supabaseClient.from('pedidos').delete().eq('cliente_id', id);
+            if (pedidosError) {
+                showAlertError(pedidosError, 'Erro ao excluir pedidos associados ao cliente. Tente novamente.');
+                return;
+            }
+
+            // Em seguida, exclua o cliente
+            const { error } = await supabaseClient.from('clientes').delete().eq('id', id);
+            if (error) showAlertError(error, 'Erro ao excluir cliente. Pedidos associados a ele não serão excluídos.');
+            else await renderClientes();
+        }
+    });
+
+    // --- LÓGICA DE SERVIÇOS ---
+    const formServico = document.getElementById('form-servico');
+    const listaServicos = document.getElementById('lista-servicos');
+    let editingServicoId = null;
+
+    async function renderServicos() {
+        showLoading(listaServicos);
+        const { data, error } = await supabaseClient
+            .from('servicos')
+            .select('*')
+            .order('nome', { ascending: true });
+
+        if (error) {
+            showAlertError(error, 'Não foi possível carregar os serviços.');
+            listaServicos.innerHTML = '';
+            return;
+        }
+
+        servicosCache = data; // Atualiza o cache de serviços
+        updatePedidoFormOptions(); // Garante que o select de pedidos seja atualizado
+
+        if (data.length === 0) {
+            listaServicos.innerHTML = '<p>Nenhum serviço cadastrado.</p>';
+        } else {
+            listaServicos.innerHTML = data.map(servico => `
+                <div class="item-card">
+                    <h3>${servico.nome}</h3>
+                    <p><strong>Valor:</strong> ${formatCurrency(servico.valor)}</p>
+                    <div class="actions">
+                        <button class="edit-btn" data-id="${servico.id}">Editar</button>
+                        <button class="delete-btn" data-id="${servico.id}">Excluir</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    formServico.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const nome = document.getElementById('servico-nome').value;
+        const valor = parseFloat(document.getElementById('servico-valor').value);
+
+        const btn = document.getElementById('btn-add-servico');
+        btn.disabled = true;
+        btn.textContent = editingServicoId ? 'Atualizando...' : 'Adicionando...';
+
+        let error = null;
+        if (editingServicoId) {
+            const { error: updateError } = await supabaseClient
+                .from('servicos')
+                .update({ nome, valor })
+                .eq('id', editingServicoId);
+            error = updateError;
+        } else {
+            const { error: insertError } = await supabaseClient
+                .from('servicos')
+                .insert([{ nome, valor }]);
+            error = insertError;
+        }
+
+        if (error) {
+            showAlertError(error, `Erro ao ${editingServicoId ? 'atualizar' : 'adicionar'} serviço.`);
+        } else {
+            showMessage(`Serviço ${editingServicoId ? 'atualizado' : 'adicionado'} com sucesso!`, 'success');
+            formServico.reset();
+            editingServicoId = null;
+            btn.textContent = 'Adicionar Serviço';
+            await renderServicos();
+        }
+        btn.disabled = false;
+    });
+
+    listaServicos.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            const id = e.target.dataset.id;
+            const servico = servicosCache.find(s => s.id == id);
+            if (servico) {
+                document.getElementById('servico-id').value = servico.id;
+                document.getElementById('servico-nome').value = servico.nome;
+                document.getElementById('servico-valor').value = servico.valor;
+                editingServicoId = servico.id;
+                document.getElementById('btn-add-servico').textContent = 'Atualizar Serviço';
+            }
+        } else if (e.target.classList.contains('delete-btn') && confirm('Tem certeza que deseja excluir este serviço?')) {
+            const id = e.target.dataset.id;
+            const { error } = await supabaseClient.from('servicos').delete().eq('id', id);
+            if (error) showAlertError(error, 'Erro ao excluir serviço.');
+            else await renderServicos();
+        }
+    });
+
+    // --- LÓGICA DE PEDIDOS ---
+    const formPedido = document.getElementById('form-pedido');
+    const listaPedidos = document.getElementById('lista-pedidos');
+    const clientePedidoSelect = document.getElementById('cliente-pedido');
+    const servicoPedidoSelect = document.getElementById('servico-pedido');
+
+    function updatePedidoFormOptions() {
+        clientePedidoSelect.innerHTML = '<option value="">Selecione um cliente</option>' + clientesCache.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+        servicoPedidoSelect.innerHTML = '<option value="">Selecione um serviço</option>' + servicosCache.map(s => `<option value="${s.id}">${s.nome} - ${formatCurrency(s.valor)}</option>`).join('');
+    }
+
+    const updatePedidoTotal = () => {
+        const totalServicos = servicosNoPedidoAtual.reduce((acc, item) => acc + (item.valor * item.quantidade), 0);
+        const desconto = parseFloat(document.getElementById('desconto-pedido').value) || 0;
+        document.getElementById('total-pedido').textContent = formatCurrency(Math.max(0, totalServicos - desconto));
+    };
+    
+    document.getElementById('add-servico-pedido-btn').addEventListener('click', () => {
+        const servicoId = parseInt(servicoPedidoSelect.value);
+        const quantidade = parseInt(document.getElementById('quantidade-servico').value);
+        if (!servicoId || !quantidade) return alert('Selecione um serviço e a quantidade.');
+        const servico = servicosCache.find(s => s.id === servicoId);
+        
+        if (servico) {
+            servicosNoPedidoAtual.push({ ...servico, quantidade });
+            renderServicosDoPedido();
+            updatePedidoTotal();
+            servicoPedidoSelect.value = '';
+            document.getElementById('quantidade-servico').value = '1';
+        }
+    });
+
+    function renderServicosDoPedido() {
+        const listaServicosSelecionados = document.getElementById('pedido-servicos-selecionados');
+        listaServicosSelecionados.innerHTML = servicosNoPedidoAtual.map((item, index) => `
+            <li>
+                <span>${item.quantidade}x ${item.nome} (${formatCurrency(item.valor * item.quantidade)})</span>
+                <button type="button" class="delete-btn" data-index="${index}">x</button>
+            </li>
+        `).join('');
+    }
+
+    document.getElementById('pedido-servicos-selecionados').addEventListener('click', (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            servicosNoPedidoAtual.splice(parseInt(e.target.dataset.index), 1);
+            renderServicosDoPedido();
+            updatePedidoTotal();
+        }
+    });
+
+    document.getElementById('desconto-pedido').addEventListener('input', updatePedidoTotal);
+
+    formPedido.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const clienteId = parseInt(clientePedidoSelect.value);
+        if (!clienteId || servicosNoPedidoAtual.length === 0) return alert('Selecione um cliente e adicione pelo menos um serviço.');
+        
+        const btn = document.getElementById('btn-add-pedido');
+        btn.disabled = true;
+        btn.textContent = 'Criando...';
+
+        const totalOriginal = servicosNoPedidoAtual.reduce((acc, item) => acc + (item.valor * item.quantidade), 0);
+        const desconto = parseFloat(document.getElementById('desconto-pedido').value) || 0;
+        const totalFinal = Math.max(0, totalOriginal - desconto);
+
+        // Obtenha a sessão atual para pegar o user_id de forma correta
+        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+
+        if (sessionError || !session) {
+            alert('Erro: Não foi possível obter sua sessão de usuário. Por favor, faça login novamente.');
+            console.error('Erro ao obter sessão para criar pedido:', sessionError);
+            btn.disabled = false;
+            btn.textContent = 'Criar Pedido';
+            return;
+        }
+
+        const { error } = await supabaseClient.from('pedidos').insert([{
+            cliente_id: clienteId,
+            servicos: servicosNoPedidoAtual,
+            desconto,
+            total_original: totalOriginal,
+            total_final: totalFinal,
+            user_id: session.user.id // <-- LINHA JÁ CORRIGIDA ANTERIORMENTE
+        }]);
+
+        if (error) {
+            showAlertError(error, 'Erro ao criar pedido. Verifique o console para mais detalhes.');
+        } else {
+            formPedido.reset();
+            servicosNoPedidoAtual = [];
+            document.getElementById('pedido-servicos-selecionados').innerHTML = '';
+            updatePedidoTotal();
+            await renderPedidos();
+        }
+        btn.disabled = false;
+        btn.textContent = 'Criar Pedido';
+    });
+
+    async function renderPedidos() {
+        showLoading(listaPedidos);
+        const { data, error } = await supabaseClient
+            .from('pedidos')
+            .select('*, clientes(nome, email, telefone)') 
+            .order('data_solicitacao', { ascending: false }); 
+            
+        if (error) {
+            showAlertError(error, 'Não foi possível carregar os pedidos.');
+            listaPedidos.innerHTML = '';
+            return;
+        }
+
+        const pedidosAgrupadosPorCliente = {};
+
+        data.forEach(pedido => {
+            const clienteNome = pedido.clientes ? pedido.clientes.nome : 'Cliente Removido';
+            const clienteId = pedido.cliente_id;
+
+            const clienteKey = `cliente_${clienteId || 'null'}_${clienteNome.replace(/\s/g, '_')}`;
+
+            if (!pedidosAgrupadosPorCliente[clienteKey]) {
+                pedidosAgrupadosPorCliente[clienteKey] = {
+                    nome: clienteNome,
+                    id: clienteId,
+                    pedidosPendentes: [],
+                    outrosPedidos: []
+                };
+            }
+
+            if (pedido.status_pagamento === 'Pendente') {
+                pedidosAgrupadosPorCliente[clienteKey].pedidosPendentes.push(pedido);
+            } else {
+                pedidosAgrupadosPorCliente[clienteKey].outrosPedidos.push(pedido);
+            }
+        });
+
+        let htmlPedidos = '';
+
+        const clientesKeysOrdenadas = Object.keys(pedidosAgrupadosPorCliente).sort((a, b) => {
+            const nomeA = pedidosAgrupadosPorCliente[a].nome.toLowerCase();
+            const nomeB = pedidosAgrupadosPorCliente[b].nome.toLowerCase();
+            if (nomeA < nomeB) return -1;
+            if (nomeA > nomeB) return 1;
+            return 0;
+        });
+
+        clientesKeysOrdenadas.forEach(key => {
+            const clienteInfo = pedidosAgrupadosPorCliente[key];
+
+            if (clienteInfo.pedidosPendentes.length > 0) {
+                htmlPedidos += `
+                    <div class="cliente-grupo-pedidos">
+                        <h3 style="margin-top: 0; color: var(--primary-color);">Pedidos Pendentes de ${clienteInfo.nome}</h3>
+                        <div class="item-list">
+                            ${clienteInfo.pedidosPendentes.map(pedido => renderPedidoCard(pedido)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (clienteInfo.outrosPedidos.length > 0) {
+                if (clienteInfo.pedidosPendentes.length > 0) {
+                    htmlPedidos += `<hr style="border: 0; border-top: 1px dashed #eee; margin: 20px 0;">`;
+                }
+                htmlPedidos += `
+                    <div class="cliente-grupo-pedidos">
+                        <h3 style="margin-top: 0; color: #666;">Outros Pedidos de ${clienteInfo.nome}</h3>
+                        <div class="item-list">
+                            ${clienteInfo.outrosPedidos.map(pedido => renderPedidoCard(pedido)).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        listaPedidos.innerHTML = htmlPedidos;
+    }
+
+    function renderPedidoCard(pedido) {
+        const clienteNome = pedido.clientes ? pedido.clientes.nome : 'Cliente Removido';
+        let valorHtml = `<h3 class="preco-final">${formatCurrency(pedido.total_final)}</h3>`;
+        if (pedido.desconto > 0) {
+            valorHtml = `<span class="preco-original">${formatCurrency(pedido.total_original)}</span> <span class="desconto-valor">(- ${formatCurrency(pedido.desconto)})</span> ${valorHtml}`;
+        }
+        return `
+            <div class="pedido-card">
+                <div class="pedido-header">
+                    <h3>Pedido #${pedido.id}</h3>
+                    <span>${formatDate(pedido.data_solicitacao)}</span>
+                </div>
+                <p><strong>Cliente:</strong> ${clienteNome}</p>
+                <ul class="pedido-servicos-list">
+                    ${pedido.servicos.map(s => `<li>${s.quantidade}x ${s.nome} <span>${formatCurrency(s.valor * s.quantidade)}</span></li>`).join('')}
+                </ul>
+                <div class="pedido-valores">${valorHtml}</div>
+                <div class="pedido-status">
+                    <div class="status-group">
+                        <label>Pagamento:</label>
+                        <select class="status-select" data-id="${pedido.id}" data-type="pagamento">
+                            <option value="Pendente" ${pedido.status_pagamento === 'Pendente' ? 'selected' : ''}>Pendente</option>
+                            <option value="Pago" ${pedido.status_pagamento === 'Pago' ? 'selected' : ''}>Pago</option>
+                        </select>
+                    </div>
+                    <div class="status-group">
+                        <label>Entrega:</label>
+                        <select class="status-select" data-id="${pedido.id}" data-type="entrega">
+                            <option value="Pendente" ${pedido.status_entrega === 'Pendente' ? 'selected' : ''}>Pendente</option>
+                            <option value="Entregue" ${pedido.status_entrega === 'Entregue' ? 'selected' : ''}>Entregue</option>
+                        </select>
+                    </div>
+                    <div class="status-group">
+                        <label>Data Entrega:</label>
+                        <input type="date" class="data-entrega-input" data-id="${pedido.id}" value="${pedido.data_entrega ? pedido.data_entrega.split('T')[0] : ''}">
+                    </div>
+                </div>
+                <div class="pedido-actions">
+                    <button class="view-comprovante-btn" data-id="${pedido.id}">Ver Comprovante</button>
+                    <button class="delete-btn" data-id="${pedido.id}">Excluir Pedido</button>
+                </div>
+            </div>
+        `;
+    }
+
+    listaPedidos.addEventListener('change', async (e) => {
+        if (e.target.classList.contains('status-select')) {
+            const id = e.target.dataset.id;
+            const type = e.target.dataset.type;
+            const value = e.target.value;
+            let updateData = {};
+            if (type === 'pagamento') updateData = { status_pagamento: value };
+            else if (type === 'entrega') updateData = { status_entrega: value };
+
+            const { error } = await supabaseClient.from('pedidos').update(updateData).eq('id', id);
+            if (error) showAlertError(error, `Erro ao atualizar status de ${type}.`);
+            else renderPedidos(); // Recarrega para mostrar o status atualizado
+        } else if (e.target.classList.contains('data-entrega-input')) {
+            const id = e.target.dataset.id;
+            const value = e.target.value; // Formato YYYY-MM-DD
+            // Para garantir que o Supabase interprete como UTC para compatibilidade
+            const dateUTC = value ? new Date(value + 'T00:00:00Z').toISOString() : null;
+
+            const { error } = await supabaseClient.from('pedidos').update({ data_entrega: dateUTC }).eq('id', id);
+            if (error) showAlertError(error, 'Erro ao atualizar data de entrega.');
+            else renderPedidos();
+        }
+    });
+
+    listaPedidos.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn') && confirm('Tem certeza que deseja excluir este pedido?')) {
+            const id = e.target.dataset.id;
+            const { error } = await supabaseClient.from('pedidos').delete().eq('id', id);
+            if (error) showAlertError(error, 'Erro ao excluir pedido.');
+            else await renderPedidos();
+        }
+        if (e.target.classList.contains('view-comprovante-btn')) {
+            const pedidoId = e.target.dataset.id;
+            await renderComprovanteModal(pedidoId);
+        }
+    });
+
+    // --- Lógica do Relatório ---
+    const corpoTabelaRelatorio = document.getElementById('corpo-tabela-relatorio');
+    const listaResumoPendencias = document.getElementById('lista-resumo-pendencias');
+
+    async function renderRelatorio() {
+        showLoading(corpoTabelaRelatorio);
+        showLoading(listaResumoPendencias);
+
+        const trintaDiasAtras = new Date();
+        trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+        const dataMinima = trintaDiasAtras.toISOString();
+
+        const { data: pedidos, error } = await supabaseClient
+            .from('pedidos')
+            .select('*, clientes(nome)')
+            .gte('data_solicitacao', dataMinima)
+            .order('data_solicitacao', { ascending: false });
+
+        if (error) {
+            showAlertError(error, 'Não foi possível carregar o relatório.');
+            corpoTabelaRelatorio.innerHTML = '<tr><td colspan="7">Erro ao carregar o relatório.</td></tr>';
+            listaResumoPendencias.innerHTML = '';
+            return;
+        }
+
+        if (pedidos.length === 0) {
+            corpoTabelaRelatorio.innerHTML = '<tr><td colspan="7">Nenhum pedido encontrado nos últimos 30 dias.</td></tr>';
+        } else {
+            corpoTabelaRelatorio.innerHTML = pedidos.map(pedido => `
+                <tr>
+                    <td>#${pedido.id}</td>
+                    <td>${pedido.clientes ? pedido.clientes.nome : 'Cliente Removido'}</td>
+                    <td>${formatDate(pedido.data_solicitacao)}</td>
+                    <td>${formatDate(pedido.data_entrega)}</td>
+                    <td>${formatCurrency(pedido.total_final)}</td>
+                    <td>${pedido.status_pagamento}</td>
+                    <td>${pedido.status_entrega}</td>
+                </tr>
+            `).join('');
+        }
+
+        // --- Resumo de Pendências ---
+        const resumoPendencias = {};
+
+        pedidos.forEach(pedido => {
+            if (pedido.status_pagamento === 'Pendente') {
+                const clienteNome = pedido.clientes ? pedido.clientes.nome : 'Cliente Removido';
+                if (!resumoPendencias[clienteNome]) {
+                    resumoPendencias[clienteNome] = { nome: clienteNome, totalPendente: 0, pedidos: [] };
+                }
+                resumoPendencias[clienteNome].totalPendente += pedido.total_final;
+                resumoPendencias[clienteNome].pedidos.push(pedido);
+            }
+        });
+
+        const clientesComPendencia = Object.values(resumoPendencias).sort((a, b) => {
+            const nomeA = a.nome.toLowerCase(); 
+            const nomeB = b.nome.toLowerCase();
+            if (nomeA < nomeB) return -1;
+            if (nomeA > nomeB) return 1;
+            return 0;
+        });
+
+        if (clientesComPendencia.length === 0) {
+            listaResumoPendencias.innerHTML = '<p>Nenhum valor pendente.</p>';
+        } else {
+            listaResumoPendencias.innerHTML = clientesComPendencia.map(cliente => `
+                <div style="margin-bottom: 15px; padding: 10px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
+                    <strong>${cliente.nome}:</strong> ${formatCurrency(cliente.totalPendente)} em ${cliente.pedidos.length} pedido(s) pendente(s).
+                    <ul style="list-style: disc; padding-left: 20px; margin-top: 5px;">
+                        ${cliente.pedidos.map(p => `<li>Pedido #${p.id} (${formatDate(p.data_solicitacao)}): ${formatCurrency(p.total_final)}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+    }
+
+    document.getElementById('exportar-relatorio-pdf').addEventListener('click', async () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
+        const element = document.getElementById('relatorio-tab'); // Captura a aba inteira do relatório
+
+        // Adiciona um título ao PDF
+        doc.setFontSize(18);
+        doc.text("Relatório de Pedidos", 40, 40);
+
+        // Renderiza o HTML para canvas e depois para PDF
+        html2canvas(element, { 
+            scale: 2, // Aumenta a escala para melhor qualidade
+            useCORS: true, // Importante se tiver imagens ou recursos de outras origens
+            allowTaint: true 
+        }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 595; // Largura A4 em pt
+            const pageHeight = 842; // Altura A4 em pt
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            let heightLeft = imgHeight;
+            let position = 60; // Posição inicial abaixo do título
+
+            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                doc.addPage();
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+            doc.save('relatorio_pedidos.pdf');
+        }).catch(error => {
+            console.error('Erro ao gerar PDF:', error);
+            alert('Ocorreu um erro ao gerar o PDF do relatório. Verifique o console.');
+        });
+    });
+
+    // --- Lógica do Comprovante Modal ---
+    const comprovanteModal = document.getElementById('comprovante-modal');
+    const comprovanteContainer = document.getElementById('comprovante-container');
+    const fecharModalBtn = document.getElementById('fechar-modal');
+    const exportComprovantePngBtn = document.getElementById('export-comprovante-png');
+    const exportComprovantePdfBtn = document.getElementById('export-comprovante-pdf');
+    let currentPedidoParaComprovante = null; // Para guardar os dados do pedido atual do comprovante
+
+    async function renderComprovanteModal(pedidoId) {
+        const { data: pedido, error } = await supabaseClient
+            .from('pedidos')
+            .select('*, clientes(nome, email, telefone)')
+            .eq('id', pedidoId)
+            .single();
+
+        if (error || !pedido) {
+            showAlertError(error, 'Não foi possível carregar os detalhes do pedido para o comprovante.');
+            return;
+        }
+
+        currentPedidoParaComprovante = pedido; // Salva o pedido para exportação
+
+        const cliente = pedido.clientes;
+        const dataSolicitacao = formatDate(pedido.data_solicitacao);
+        const dataEntrega = formatDate(pedido.data_entrega);
+
+        let servicosHtml = pedido.servicos.map(s => `
+            <li>
+                <span>${s.quantidade}x ${s.nome}</span>
+                <span>${formatCurrency(s.valor)} cada</span>
+                <span>${formatCurrency(s.valor * s.quantidade)}</span>
+            </li>
+        `).join('');
+
+        comprovanteContainer.innerHTML = `
+            <h3>Detalhes do Pedido #${pedido.id}</h3>
+            <p><strong>Cliente:</strong> ${cliente ? cliente.nome : 'N/A'}</p>
+            <p><strong>Email:</strong> ${cliente ? cliente.email || 'N/A' : 'N/A'}</p>
+            <p><strong>Telefone:</strong> ${cliente ? cliente.telefone || 'N/A' : 'N/A'}</p>
+            <p><strong>Data da Solicitação:</strong> ${dataSolicitacao}</p>
+            <p><strong>Data da Entrega:</strong> ${dataEntrega}</p>
+            <hr>
+            <h4>Serviços:</h4>
+            <ul class="pedido-servicos-list">
+                ${servicosHtml}
+            </ul>
+            <hr>
+            <p><strong>Total Original:</strong> ${formatCurrency(pedido.total_original)}</p>
+            <p><strong>Desconto:</strong> ${formatCurrency(pedido.desconto)}</p>
+            <h3><strong>Total Final:</strong> ${formatCurrency(pedido.total_final)}</h3>
+            <p><strong>Status Pagamento:</strong> ${pedido.status_pagamento}</p>
+            <p><strong>Status Entrega:</strong> ${pedido.status_entrega}</p>
+        `;
+        comprovanteModal.style.display = 'flex';
+    }
+
+    fecharModalBtn.addEventListener('click', () => {
+        comprovanteModal.style.display = 'none';
+        currentPedidoParaComprovante = null;
+    });
+
+    exportComprovantePngBtn.addEventListener('click', () => {
+        if (!currentPedidoParaComprovante) return;
+        html2canvas(comprovanteContainer, { scale: 2, useCORS: true, allowTaint: true }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = `comprovante_pedido_${currentPedidoParaComprovante.id}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }).catch(error => {
+            console.error('Erro ao exportar PNG:', error);
+            alert('Ocorreu um erro ao exportar o comprovante como PNG.');
+        });
+    });
+
+    exportComprovantePdfBtn.addEventListener('click', () => {
+        if (!currentPedidoParaComprovante) return;
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'pt', 'a4');
+        
+        html2canvas(comprovanteContainer, { scale: 2, useCORS: true, allowTaint: true }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const imgWidth = 595; // A4 width in pts
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            
+            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            doc.save(`comprovante_pedido_${currentPedidoParaComprovante.id}.pdf`);
+        }).catch(error => {
+            console.error('Erro ao exportar PDF:', error);
+            alert('Ocorreu um erro ao exportar o comprovante como PDF.');
+        });
+    });
+
+    // PWA Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            // ***** ALTERAÇÃO AQUI *****
+            // Removida a barra inicial para que o caminho seja relativo ao <base href>
+            navigator.serviceWorker.register('service-worker.js') 
+                .then(registration => {
+                    console.log('SW registrado: ', registration);
+                })
+                .catch(registrationError => {
+                    console.log('SW falhou: ', registrationError);
+                });
+        });
+    }
+
+    // Listener para o evento de autenticação do Supabase
+    // Este listener é importante para garantir que, se a sessão expirar ou o usuário for deslogado
+    // de outra aba, o estado da UI seja atualizado.
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+        console.log('Auth state change:', event, session);
+        if (event === 'SIGNED_OUT' || !session) {
+            // Se o usuário fez logout ou a sessão expirou, exibe a tela de login
+            loginScreen.style.display = 'flex';
+            mainSystem.style.display = 'none';
+            loginForm.reset(); // Limpa o formulário de login
+            showMessage('Sua sessão expirou ou você foi desconectado. Faça login novamente.', 'error');
+        } else if (event === 'SIGNED_IN') {
+            // Se o usuário fez login, inicializa o sistema
+            initSystem(session.user);
+        }
+    });
+
+});
+</script>
+</body>
+</html>
