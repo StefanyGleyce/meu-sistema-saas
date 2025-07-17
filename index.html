@@ -209,6 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let servicosCache = [];
     let clientesCache = [];
     let currentUserRole = 'guest'; // Padrão inicial antes da verificação
+    let currentUserCompanyId = null; // Variável para armazenar o company_id do usuário logado
 
     // --- VARIÁVEIS E ELEMENTOS DA TELA DE LOGIN ---
     const loginScreen = document.getElementById('login-screen');
@@ -306,6 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showAlertError(error, 'Erro ao fazer logout.');
         } else {
             currentUserRole = 'guest'; // Resetar a role
+            currentUserCompanyId = null; // Resetar company_id
             loginScreen.style.display = 'flex';
             mainSystem.style.display = 'none';
             showMessage('Você foi desconectado.', 'success');
@@ -316,25 +318,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função para inicializar o sistema após o login ou ao carregar a página
     async function initSystem() {
-        const { data: { user } } = await supabaseClient.auth.getUser(); // CORREÇÃO AQUI
+        const { data: { user } } = await supabaseClient.auth.getUser();
         if (user) {
             loginScreen.style.display = 'none';
             mainSystem.style.display = 'block';
 
-            // Buscar o perfil do usuário para determinar a role
+            // Buscar o perfil do usuário para determinar a role e company_id
             const { data: profile, error } = await supabaseClient
                 .from('profiles')
-                .select('role')
+                .select('role, company_id') // Adicionado company_id aqui
                 .eq('id', user.id)
                 .single();
 
             if (error) {
                 console.error('Erro ao buscar perfil:', error);
                 currentUserRole = 'user'; // Padrão seguro em caso de erro
+                currentUserCompanyId = null; // Definir como null em caso de erro
                 console.log('Usuário logado com role: user (padrão devido a erro de perfil)');
             } else {
                 currentUserRole = profile.role;
-                console.log(`Usuário logado com role: ${currentUserRole}`);
+                currentUserCompanyId = profile.company_id; // Armazenar o company_id
+                console.log(`Usuário logado com role: ${currentUserRole}, company_id: ${currentUserCompanyId}`);
             }
 
             // Renderiza a aba ativa inicialmente (Serviços por padrão)
@@ -367,7 +371,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function renderServicos() {
         showLoading(listaServicos);
-        const { data, error } = await supabaseClient.from('servicos').select('*').order('nome', { ascending: true });
+        const { data, error } = await supabaseClient
+            .from('servicos')
+            .select('*')
+            .eq('company_id', currentUserCompanyId) // Filtrar por company_id
+            .order('nome', { ascending: true });
         if (error) {
             showAlertError(error, 'Não foi possível carregar os serviços.');
             listaServicos.innerHTML = '';
@@ -390,7 +398,8 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = 'Adicionando...';
         const { error } = await supabaseClient.from('servicos').insert([{ 
             nome: document.getElementById('nome-servico').value, 
-            valor: parseFloat(document.getElementById('valor-servico').value) 
+            valor: parseFloat(document.getElementById('valor-servico').value),
+            company_id: currentUserCompanyId // Adicionar company_id
         }]);
         if (error) showAlertError(error, 'Erro ao adicionar serviço.');
         else {
@@ -416,7 +425,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function renderClientes() {
         showLoading(listaClientes);
-        const { data, error } = await supabaseClient.from('clientes').select('*').order('nome', { ascending: true });
+        const { data, error } = await supabaseClient
+            .from('clientes')
+            .select('*')
+            .eq('company_id', currentUserCompanyId) // Filtrar por company_id
+            .order('nome', { ascending: true });
         if (error) {
             showAlertError(error, 'Não foi possível carregar os clientes.');
             listaClientes.innerHTML = '';
@@ -440,7 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { error } = await supabaseClient.from('clientes').insert([{ 
             nome: document.getElementById('nome-cliente').value, 
             email: document.getElementById('email-cliente').value, 
-            telefone: document.getElementById('telefone-cliente').value 
+            telefone: document.getElementById('telefone-cliente').value,
+            company_id: currentUserCompanyId // Adicionar company_id
         }]);
         if (error) showAlertError(error, 'Erro ao adicionar cliente.');
         else {
@@ -542,7 +556,8 @@ document.addEventListener('DOMContentLoaded', () => {
             desconto,
             total_original: totalOriginal,
             total_final: totalFinal,
-            user_id: session.user.id // <--- LINHA JÁ CORRIGIDA NO SEU CÓDIGO
+            user_id: session.user.id,
+            company_id: currentUserCompanyId // Adicionar company_id
         }]);
 
         if (error) {
@@ -563,6 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data, error } = await supabaseClient
             .from('pedidos')
             .select('*, clientes(nome, email, telefone)') 
+            .eq('company_id', currentUserCompanyId) // Filtrar por company_id
             .order('data_solicitacao', { ascending: false }); 
             
         if (error) {
@@ -734,6 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: pedidos, error } = await supabaseClient
             .from('pedidos')
             .select('*, clientes(nome)')
+            .eq('company_id', currentUserCompanyId) // Filtrar por company_id
             .gte('data_solicitacao', dataMinima)
             .order('data_solicitacao', { ascending: false });
 
@@ -848,6 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .from('pedidos')
             .select('*, clientes(nome, email, telefone)')
             .eq('id', pedidoId)
+            .eq('company_id', currentUserCompanyId) // Garantir que o comprovante é da mesma empresa
             .single();
 
         if (error || !pedido) {
